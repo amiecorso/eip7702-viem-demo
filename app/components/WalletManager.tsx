@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
-import { parseEther, createPublicClient, http, type Hex } from "viem";
+import {
+  parseEther,
+  createPublicClient,
+  http,
+  type Hex,
+  encodeFunctionData,
+} from "viem";
 import {
   createEOAWallet,
   getRelayerWalletClient,
@@ -109,49 +115,17 @@ export function WalletManager({
         contractAddress: proxyAddress,
         sponsor: relayerWallet.account.address,
       });
+      console.log("Authorization object:", authorization);
 
-      // Create initialization args with the relayer as the new owner
-      console.log("\nPreparing initialization data and signature...");
+      // Prepare initialization data
+      console.log("\nPreparing initialization data...");
       const initArgs = encodeInitializeArgs(
         relayerWallet.account.address as Hex
       );
-      const initHash = createInitializeHash(proxyAddress, initArgs);
-      const signature = await signInitialization(userWallet, initHash);
+      const initSignatureHash = createInitializeHash(proxyAddress, initArgs);
+      const signature = await signInitialization(userWallet, initSignatureHash);
 
-      // Submit the upgrade transaction
-      console.log("\nSubmitting upgrade transaction...");
-      const hash = await relayerWallet.sendTransaction({
-        to: account.address as `0x${string}`,
-
-        value: INITIAL_FUNDING,
-        authorizationList: [authorization],
-      });
-      console.log("✓ Upgrade transaction submitted");
-
-      // Check the transaction receipt
-      const receipt = await publicClient.getTransactionReceipt({
-        hash: hash,
-      });
-      if (receipt.status === "success") {
-        console.log("✓ Upgrade transaction confirmed");
-      }
-
-      // Check if the code was deployed
-      console.log("\nVerifying deployment...");
-      const code = await publicClient.getCode({ address: account.address });
-
-      if (code && code !== "0x") {
-        console.log("✓ Code deployed successfully");
-        console.log("\n=== Wallet upgrade complete ===");
-        console.log("Smart wallet address:", account.address);
-        console.log("Owner address:", relayerWallet.account.address);
-      } else {
-        console.log("✗ Code deployment failed");
-        throw new Error("Code deployment failed");
-      }
-
-      const initTxnHash = await relayerWallet.writeContract({
-        address: account.address as `0x${string}`,
+      const initData = encodeFunctionData({
         abi: [
           {
             type: "function",
@@ -167,19 +141,60 @@ export function WalletManager({
         functionName: "initialize",
         args: [initArgs, signature],
       });
-      console.log("✓ Initialization transaction submitted");
-      const initReceipt = await publicClient.waitForTransactionReceipt({
-        hash: initTxnHash,
-      });
-      if (initReceipt.status === "success") {
-        console.log("✓ Initialization transaction confirmed");
-      } else {
-        console.log("✗ Initialization transaction failed");
-        throw new Error("Initialization transaction failed");
-      }
+      console.log("Initialization data:", initData);
 
-      onUpgradeComplete(account.address as `0x${string}`, hash);
-      setIsUpgraded(true);
+      // Submit combined transaction
+      console.log("\nAttempting to submit combined transaction...");
+      try {
+        console.log("Transaction params:", {
+          to: account.address,
+          value: INITIAL_FUNDING,
+          data: initData,
+          authorizationList: [authorization],
+          gas: BigInt(1000000),
+        });
+
+        const hash = await relayerWallet.sendTransaction({
+          to: account.address as `0x${string}`,
+          value: INITIAL_FUNDING,
+          data: initData,
+          authorizationList: [authorization],
+          gas: BigInt(1000000),
+        });
+        console.log("✓ Transaction submitted successfully, hash:", hash);
+
+        // Check the transaction receipt
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        console.log("Transaction receipt:", receipt);
+
+        // Verify code deployment regardless of transaction success
+        console.log("\nChecking for code deployment...");
+        const code = await publicClient.getCode({ address: account.address });
+        console.log("Code at EOA:", code);
+
+        if (code && code !== "0x") {
+          console.log("✓ Code deployed successfully");
+
+          // Now prepare and send the initialization
+          console.log("\n=== Wallet upgrade complete ===");
+          console.log("Smart wallet address:", account.address);
+          console.log("Owner address:", relayerWallet.account.address);
+
+          onUpgradeComplete(account.address as `0x${string}`, hash);
+          setIsUpgraded(true);
+        } else {
+          console.log("✗ No code found at EOA address");
+          console.log("This suggests the authorization may have failed");
+          throw new Error(
+            "Code deployment failed - no code found at EOA address"
+          );
+        }
+      } catch (error: any) {
+        console.error("Upgrade failed:", error);
+        setError(formatError(error));
+      } finally {
+        setLoading(false);
+      }
     } catch (error: any) {
       console.error("Upgrade failed:", error);
       setError(formatError(error));
