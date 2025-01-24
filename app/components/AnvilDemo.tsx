@@ -65,7 +65,7 @@ export function AnvilDemo() {
       addStatus(`EOA to upgrade: ${accountToUpgrade.address}`);
       addStatus(`Relayer address: ${relayerAccount.address}`);
 
-      // Step 2: Create wallet clients
+      // Create wallet clients
       const userWallet = createEOAClient(
         {
           ...accountToUpgrade,
@@ -87,19 +87,26 @@ export function AnvilDemo() {
         transport: http(),
       });
 
-      // Step 3: Create authorization signature and prepare upgrade
-      addStatus("\n=== Step 2: Creating authorization signature ===");
+      // Step 2: Prepare upgrade data
+      addStatus("\n=== Step 2: Preparing upgrade data ===");
       const proxyAddress =
         "0x261D8c5e9742e6f7f1076Fa1F560894524e19cad" as `0x${string}`;
       addStatus(`Using proxy template: ${proxyAddress}`);
 
-      // Prepare initialization data
+      // Create authorization signature
+      const authorization = await userWallet.signAuthorization({
+        contractAddress: proxyAddress,
+        sponsor: relayerWallet.account.address,
+      });
+      addStatus(`Created authorization signature: ${authorization}`);
+
+      // Step 3: Prepare initialization data
       addStatus("\n=== Step 3: Preparing initialization data ===");
 
       // Encode the EOA address as the owner
       const encodedOwner = encodeAbiParameters(
         [{ type: "address" }],
-        [accountToUpgrade.address]
+        [relayerWallet.account.address]
       );
 
       // Encode the array of encoded owners (in this case, just one)
@@ -110,7 +117,6 @@ export function AnvilDemo() {
       addStatus(`Encoded initialization args: ${initArgs}`);
 
       // Create initialization hash for signing
-      // This is what the EOA will sign to prove they want to be the owner
       const abiEncoded = encodeAbiParameters(
         [
           { name: "proxyAddr", type: "address" },
@@ -136,16 +142,35 @@ export function AnvilDemo() {
       );
       addStatus(`Initialization signature: ${initSignature}`);
 
-      const authorization = await userWallet.signAuthorization({
-        contractAddress: proxyAddress,
-        sponsor: relayerWallet.account.address,
-      });
-
-      addStatus(`Created authorization signature: ${authorization}`);
-
       // Step 4: Submit upgrade transaction
       addStatus("\n=== Step 4: Submitting upgrade transaction ===");
       const upgradeHash = await relayerWallet.sendTransaction({
+        to: accountToUpgrade.address,
+        authorizationList: [authorization],
+      });
+      const upgradeReceipt = await publicClient.waitForTransactionReceipt({
+        hash: upgradeHash,
+      });
+      if (upgradeReceipt.status !== "success") {
+        throw new Error("Upgrade transaction reverted");
+      }
+      addStatus(`Upgrade transaction confirmed (tx: ${upgradeHash})`);
+
+      // Step 5: Verify code deployment
+      addStatus("\n=== Step 5: Verifying code deployment ===");
+      const code = await publicClient.getCode({
+        address: accountToUpgrade.address,
+      });
+      if (!code || code === "0x") {
+        throw new Error("Code deployment failed - no code at address");
+      }
+      addStatus(
+        `✓ Code deployed successfully! Length: ${(code.length - 2) / 2} bytes`
+      );
+
+      // Step 6: Submit initialization transaction
+      addStatus("\n=== Step 6: Submitting initialization transaction ===");
+      const initHash = await relayerWallet.sendTransaction({
         to: accountToUpgrade.address,
         abi: [
           {
@@ -161,44 +186,49 @@ export function AnvilDemo() {
         ],
         functionName: "initialize",
         args: [initArgs, initSignature],
-        authorizationList: [authorization],
       });
-      await publicClient.waitForTransactionReceipt({ hash: upgradeHash });
-      addStatus(`Upgrade transaction confirmed (tx: ${upgradeHash})`);
-
-      // Step 5: Verify code deployment
-      addStatus("\n=== Step 5: Verifying code deployment ===");
-      const code = await publicClient.getCode({
-        address: accountToUpgrade.address,
+      const initReceipt = await publicClient.waitForTransactionReceipt({
+        hash: initHash,
       });
-      if (!code || code === "0x") {
-        throw new Error("Code deployment failed - no code at address");
+      if (initReceipt.status !== "success") {
+        throw new Error("Initialization transaction reverted");
       }
-      addStatus(
-        `✓ Code deployed successfully! Length: ${(code.length - 2) / 2} bytes`
-      );
+      addStatus(`Initialization transaction confirmed (tx: ${initHash})`);
 
-      // Step 6: Verify EOA is owner
-      addStatus("\n=== Step 6: Verifying EOA ownership ===");
-      const isOwner = await publicClient.readContract({
-        address: accountToUpgrade.address,
-        abi: [
-          {
-            type: "function",
-            name: "isOwner",
-            inputs: [{ name: "owner", type: "address" }],
-            outputs: [{ type: "bool" }],
-            stateMutability: "view",
-          },
-        ],
-        functionName: "isOwner",
-        args: [accountToUpgrade.address],
-      });
+      // Step 7: Verify EOA ownership
+      addStatus("\n=== Step 7: Verifying Relayer ownership ===");
+      addStatus(`Checking if ${relayerWallet.account.address} is owner...`);
 
-      if (isOwner) {
-        addStatus("✓ Success! EOA is confirmed as owner of the smart wallet");
-      } else {
-        throw new Error("Ownership verification failed - EOA is not owner");
+      try {
+        const isOwnerAddress = await publicClient.readContract({
+          address: accountToUpgrade.address,
+          abi: [
+            {
+              type: "function",
+              name: "isOwnerAddress",
+              inputs: [{ name: "account", type: "address" }],
+              outputs: [{ type: "bool" }],
+              stateMutability: "view",
+            },
+          ],
+          functionName: "isOwnerAddress",
+          args: [relayerWallet.account.address],
+        });
+
+        if (isOwnerAddress) {
+          addStatus(
+            "✓ Success! Relayer is confirmed as owner of the smart wallet"
+          );
+        } else {
+          throw new Error(
+            "Ownership verification failed - Relayer is not owner"
+          );
+        }
+      } catch (e) {
+        addStatus(`Error checking ownership: ${e}`);
+        throw new Error(
+          "Ownership verification failed - could not check ownership"
+        );
       }
     } catch (error: any) {
       addStatus(`\n❌ Error: ${error.message || String(error)}`);
@@ -208,21 +238,18 @@ export function AnvilDemo() {
   };
 
   return (
-    <div className="flex flex-col items-center gap-4">
+    <div className="space-y-4">
       <button
         onClick={handleStartDemo}
         disabled={loading}
-        className="w-64 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+        className="px-4 py-2 text-sm font-semibold text-white bg-blue-500 rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {loading ? "Running Demo..." : "Start Demo"}
+        {loading ? "Running..." : "Start Demo"}
       </button>
-
       {status && (
-        <div className="w-full max-w-4xl">
-          <pre className="bg-gray-900 text-green-400 p-4 rounded font-mono text-sm whitespace-pre-wrap">
-            {status}
-          </pre>
-        </div>
+        <pre className="p-4 bg-gray-900 text-green-400 rounded overflow-x-auto">
+          {status}
+        </pre>
       )}
     </div>
   );

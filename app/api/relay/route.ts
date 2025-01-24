@@ -50,9 +50,19 @@ export async function POST(request: Request) {
       }
 
       case "upgrade": {
-        const { authorizationList, initArgs, initSignature } = body;
+        const { authorizationList, value } = body;
         const hash = await relayerWallet.sendTransaction({
           to: targetAddress,
+          value: BigInt(value),
+          authorizationList,
+        });
+        return Response.json({ hash });
+      }
+
+      case "initialize": {
+        const { initArgs, initSignature } = body;
+        const hash = await relayerWallet.writeContract({
+          address: targetAddress,
           abi: [
             {
               type: "function",
@@ -67,7 +77,6 @@ export async function POST(request: Request) {
           ],
           functionName: "initialize",
           args: [initArgs, initSignature],
-          authorizationList,
         });
         return Response.json({ hash });
       }
