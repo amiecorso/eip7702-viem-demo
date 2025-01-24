@@ -111,28 +111,13 @@ export async function createEOAWallet(): Promise<ExtendedAccount> {
   };
 }
 
-export function encodeInitializeArgs(
-  owners: (Hex | { publicKey: Hex })[]
-): Hex {
-  // First encode each owner - either an address or a WebAuthn public key
-  const encodedOwners = owners.map((owner) => {
-    if (typeof owner === "string") {
-      // Regular address
-      return encodeAbiParameters([{ type: "address" }], [owner]);
-    } else {
-      // WebAuthn public key - encode as bytes32[2] for x and y coordinates
-      const pubKeyHex = owner.publicKey.slice(2); // remove 0x prefix
-      const x = `0x${pubKeyHex.slice(0, 64)}` as Hex;
-      const y = `0x${pubKeyHex.slice(64)}` as Hex;
-      return encodeAbiParameters(
-        [{ type: "bytes32" }, { type: "bytes32" }],
-        [x, y]
-      );
-    }
-  });
+export function encodeInitializeArgs(ownerAddress: Hex): Hex {
+  // For an Ethereum address, we need to pad it to 32 bytes
+  // Remove 0x prefix, pad to 64 characters (32 bytes) with leading zeros
+  const paddedOwner = `0x${ownerAddress.slice(2).padStart(64, "0")}` as Hex;
 
-  // Then encode the array of encoded owners
-  const initArgs = encodeAbiParameters([{ type: "bytes[]" }], [encodedOwners]);
+  // Then encode the array of owners
+  const initArgs = encodeAbiParameters([{ type: "bytes[]" }], [[paddedOwner]]);
   return initArgs;
 }
 

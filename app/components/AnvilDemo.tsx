@@ -103,17 +103,8 @@ export function AnvilDemo() {
       // Step 3: Prepare initialization data
       addStatus("\n=== Step 3: Preparing initialization data ===");
 
-      // Encode the EOA address as the owner
-      const encodedOwner = encodeAbiParameters(
-        [{ type: "address" }],
-        [relayerWallet.account.address]
-      );
-
       // Encode the array of encoded owners (in this case, just one)
-      const initArgs = encodeAbiParameters(
-        [{ type: "bytes[]" }],
-        [[encodedOwner]]
-      );
+      const initArgs = encodeInitializeArgs(relayerWallet.account.address);
       addStatus(`Encoded initialization args: ${initArgs}`);
 
       // Create initialization hash for signing
@@ -170,6 +161,9 @@ export function AnvilDemo() {
 
       // Step 6: Submit initialization transaction
       addStatus("\n=== Step 6: Submitting initialization transaction ===");
+      addStatus(`Initialization args: ${initArgs}`);
+      addStatus(`Initialization signature: ${initSignature}`);
+
       const initHash = await relayerWallet.sendTransaction({
         to: accountToUpgrade.address,
         abi: [
@@ -195,9 +189,106 @@ export function AnvilDemo() {
       }
       addStatus(`Initialization transaction confirmed (tx: ${initHash})`);
 
+      // Inspect the transaction receipt in detail
+      addStatus("\n=== Initialization Transaction Details ===");
+      addStatus(`Gas used: ${initReceipt.gasUsed}`);
+      addStatus(`Block number: ${initReceipt.blockNumber}`);
+      addStatus(`Transaction status: ${initReceipt.status}`);
+
+      // Look for any logs/events
+      if (initReceipt.logs && initReceipt.logs.length > 0) {
+        addStatus("\nTransaction logs:");
+        initReceipt.logs.forEach((log, index) => {
+          addStatus(`\nLog ${index + 1}:`);
+          addStatus(`  Address: ${log.address}`);
+          addStatus(`  Topics: ${JSON.stringify(log.topics)}`);
+          addStatus(`  Data: ${log.data}`);
+
+          // Try to decode if it's an AddOwner event
+          if (
+            log.topics[0] ===
+            keccak256(new TextEncoder().encode("AddOwner(uint256,bytes)"))
+          ) {
+            addStatus("  This appears to be an AddOwner event!");
+            // The first topic is the event signature
+            // The second topic should be the indexed ownerIndex
+            const ownerIndex = log.topics[1];
+            addStatus(`  Owner Index: ${ownerIndex}`);
+            // The data contains the non-indexed owner bytes
+            addStatus(`  Owner Data: ${log.data}`);
+          }
+        });
+      } else {
+        addStatus("\nNo logs found in the transaction receipt!");
+      }
+
       // Step 7: Verify EOA ownership
       addStatus("\n=== Step 7: Verifying Relayer ownership ===");
       addStatus(`Checking if ${relayerWallet.account.address} is owner...`);
+
+      // Let's check the owner count first
+      const ownerCount = await publicClient.readContract({
+        address: accountToUpgrade.address,
+        abi: [
+          {
+            type: "function",
+            name: "ownerCount",
+            inputs: [],
+            outputs: [{ type: "uint256" }],
+            stateMutability: "view",
+          },
+        ],
+        functionName: "ownerCount",
+      });
+      addStatus(`Current owner count: ${ownerCount}`);
+
+      // Let's also check nextOwnerIndex and removedOwnersCount
+      const nextOwnerIndex = await publicClient.readContract({
+        address: accountToUpgrade.address,
+        abi: [
+          {
+            type: "function",
+            name: "nextOwnerIndex",
+            inputs: [],
+            outputs: [{ type: "uint256" }],
+            stateMutability: "view",
+          },
+        ],
+        functionName: "nextOwnerIndex",
+      });
+      addStatus(`Next owner index: ${nextOwnerIndex}`);
+
+      const removedOwnersCount = await publicClient.readContract({
+        address: accountToUpgrade.address,
+        abi: [
+          {
+            type: "function",
+            name: "removedOwnersCount",
+            inputs: [],
+            outputs: [{ type: "uint256" }],
+            stateMutability: "view",
+          },
+        ],
+        functionName: "removedOwnersCount",
+      });
+      addStatus(`Removed owners count: ${removedOwnersCount}`);
+
+      // Let's check what's at index 0
+      const ownerAtZero = await publicClient.readContract({
+        address: accountToUpgrade.address,
+        abi: [
+          {
+            type: "function",
+            name: "ownerAtIndex",
+            inputs: [{ type: "uint256" }],
+            outputs: [{ type: "bytes" }],
+            stateMutability: "view",
+          },
+        ],
+        functionName: "ownerAtIndex",
+        args: [BigInt(0)],
+      });
+      addStatus(`Owner at index 0: ${ownerAtZero}`);
 
       try {
         const isOwnerAddress = await publicClient.readContract({
@@ -206,7 +297,7 @@ export function AnvilDemo() {
             {
               type: "function",
               name: "isOwnerAddress",
-              inputs: [{ name: "account", type: "address" }],
+              inputs: [{ name: "owner", type: "address" }],
               outputs: [{ type: "bool" }],
               stateMutability: "view",
             },
