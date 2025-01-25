@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "Script to upgrade an EOA to a smart wallet using EIP-7702",
   "scripts": {
-    "upgrade": "npx ts-node scripts/upgrade-wallet.ts"
+    "upgrade": "npx ts-node scripts/upgrade-wallet.ts",
+    "upgrade-combined": "npx ts-node scripts/upgrade-wallet-combined.ts"
   },
   "dependencies": {
     "viem": "^2.7.8",
