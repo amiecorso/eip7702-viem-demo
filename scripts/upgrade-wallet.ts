@@ -6,6 +6,7 @@ import {
   http,
   type Hex,
   parseEther,
+  encodeFunctionData,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { secp256k1 } from "@noble/curves/secp256k1";
@@ -186,22 +187,25 @@ async function main() {
 
     // Initialize the wallet
     console.log("\nInitializing smart wallet owner...");
-    const initTxnHash = await relayerWallet.writeContract({
-      address: accountToUpgrade.address as `0x${string}`,
-      abi: [
-        {
-          type: "function",
-          name: "initialize",
-          inputs: [
-            { name: "args", type: "bytes" },
-            { name: "signature", type: "bytes" },
-          ],
-          outputs: [],
-          stateMutability: "payable",
-        },
-      ],
-      functionName: "initialize",
-      args: [initArgs, signature],
+
+    const initTxnHash = await relayerWallet.sendTransaction({
+      to: accountToUpgrade.address as `0x${string}`,
+      data: encodeFunctionData({
+        abi: [
+          {
+            type: "function",
+            name: "initialize",
+            inputs: [
+              { name: "args", type: "bytes" },
+              { name: "signature", type: "bytes" },
+            ],
+            outputs: [],
+            stateMutability: "payable",
+          },
+        ],
+        functionName: "initialize",
+        args: [initArgs, signature],
+      }),
     });
     console.log("✓ Initialization transaction submitted");
 
