@@ -13,12 +13,11 @@ export const VALIDATOR_ADDRESS = "0xA96fc9fA032e5f58E225D979f985D51BCb671eF8" as
 
 // CoinbaseSmartWallet implementation address
 export const CBSW_IMPLEMENTATION_ADDRESS = "0x3e0BecB45eBf7Bd1e3943b9521264Bc5B0bd8Ca9" as const;
-  
-// The old version of the EIP7702Proxy, doesn't matter what this address is
-export const FOREIGN_7702_DELEGATE = "0x5ee57314eFc8D76B9084BC6759A2152084392e18" as const;
 
 // A mock UUPSUpgradeable implementation
 export const FOREIGN_1967_IMPLEMENTATION = "0xbAaaB2feecd974717816FA5ac540D96ad12eb342" as const;
+
+export const STORAGE_ERASER_ADDRESS = "0xA7aFC9Fe41cE8197596B6d3096BF3dcb4A61c122" as const;
 
 // Standard EntryPoint address (same across networks)
 export const ENTRYPOINT_ADDRESS =

@@ -7,7 +7,8 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { odysseyTestnet } from "./chains";
-import { EntryPointAddress, EntryPointAbi } from "./abi/EntryPoint";
+import { ENTRYPOINT_ADDRESS } from "./constants";
+import { ENTRYPOINT_ABI } from "./abi/EntryPoint";
 
 // Withdraws the entry point deposit for the smart wallet to the relayer address, which is acting as mini bundler
 export async function withdrawEntryPointDeposit({
@@ -32,11 +33,11 @@ export async function withdrawEntryPointDeposit({
   onStatus?.("Checking current deposit via balanceOf...");
   onStatus?.(`Smart wallet address: ${smartWalletAddress}`);
   onStatus?.(`Withdraw to address: ${withdrawAddress}`);
-  onStatus?.(`EntryPoint address: ${EntryPointAddress}`);
+  onStatus?.(`EntryPoint address: ${ENTRYPOINT_ADDRESS}`);
 
   const currentDeposit = (await publicClient.readContract({
-    address: EntryPointAddress,
-    abi: EntryPointAbi,
+    address: ENTRYPOINT_ADDRESS,
+    abi: ENTRYPOINT_ABI,
     functionName: "balanceOf",
     args: [smartWalletAddress],
   })) as bigint;
@@ -55,8 +56,8 @@ export async function withdrawEntryPointDeposit({
   // Double check the deposit info
   onStatus?.("Getting detailed deposit info...");
   const depositInfo = (await publicClient.readContract({
-    address: EntryPointAddress,
-    abi: EntryPointAbi,
+    address: ENTRYPOINT_ADDRESS,
+    abi: ENTRYPOINT_ABI,
     functionName: "getDepositInfo",
     args: [smartWalletAddress],
   })) as {
@@ -98,7 +99,7 @@ export async function withdrawEntryPointDeposit({
     try {
       // Encode the withdrawTo call without simulation
       const withdrawCalldata = encodeFunctionData({
-        abi: EntryPointAbi,
+        abi: ENTRYPOINT_ABI,
         functionName: "withdrawTo",
         args: [withdrawAddress, withdrawableAmount],
       });
@@ -121,7 +122,7 @@ export async function withdrawEntryPointDeposit({
           },
         ],
         functionName: "execute",
-        args: [EntryPointAddress, BigInt(0), withdrawCalldata],
+        args: [ENTRYPOINT_ADDRESS, BigInt(0), withdrawCalldata],
         account: relayer.address,
       });
       onStatus?.("Simulation successful");
@@ -144,7 +145,7 @@ export async function withdrawEntryPointDeposit({
           },
         ],
         functionName: "execute",
-        args: [EntryPointAddress, BigInt(0), withdrawCalldata],
+        args: [ENTRYPOINT_ADDRESS, BigInt(0), withdrawCalldata],
       });
 
       onStatus?.(`Withdrawal transaction submitted: ${hash}`);
@@ -155,8 +156,8 @@ export async function withdrawEntryPointDeposit({
       // Get final deposit info to verify withdrawal
       onStatus?.("Getting final deposit info...");
       const finalDepositInfo = (await publicClient.readContract({
-        address: EntryPointAddress,
-        abi: EntryPointAbi,
+        address: ENTRYPOINT_ADDRESS,
+        abi: ENTRYPOINT_ABI,
         functionName: "getDepositInfo",
         args: [smartWalletAddress],
       })) as {

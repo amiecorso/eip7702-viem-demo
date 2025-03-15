@@ -1,8 +1,9 @@
 import { privateKeyToAccount } from "viem/accounts";
-import { createWalletClient, http, type Hex, encodeFunctionData } from "viem";
+import { createWalletClient, http, type Hex, encodeFunctionData, createPublicClient } from "viem";
 import { odysseyTestnet } from "@/app/lib/chains";
 import { eip7702Actions } from "viem/experimental";
 import { CBSW_IMPLEMENTATION_ADDRESS, VALIDATOR_ADDRESS } from "../../lib/constants";
+import { MULTI_OWNABLE_STORAGE_ERASER_ABI } from "../../lib/abi/MultiOwnableStorageEraser";
 
 // This runs on the server, so it's safe to access the private key
 const RELAYER_PRIVATE_KEY = process.env.RELAYER_PRIVATE_KEY as Hex;
@@ -110,11 +111,11 @@ export async function POST(request: Request) {
           authListLength: authorizationList?.length,
           authDetails: authorizationList?.[0],
         });
-        
+
         const hash = await submitTransaction(
           targetAddress,
           BigInt(0),
-          undefined,
+          "0x",  // Add empty calldata
           authorizationList
         );
         
@@ -180,6 +181,31 @@ export async function POST(request: Request) {
           targetAddress,
           implementation: CBSW_IMPLEMENTATION_ADDRESS,
           validator: VALIDATOR_ADDRESS,
+        });
+        
+        return Response.json({ hash });
+      }
+
+      // *************** Erase Storage ****************************
+      case "eraseStorage": {
+        console.log("\n=== Erasing Storage ===");
+        console.log("Target address:", targetAddress);
+        
+        const data = encodeFunctionData({
+          abi: MULTI_OWNABLE_STORAGE_ERASER_ABI,
+          functionName: "eraseNextOwnerIndexStorage",
+          args: []
+        });
+        
+        const hash = await submitTransaction(
+          targetAddress,
+          BigInt(0),
+          data
+        );
+        
+        console.log("Submitted eraseStorage transaction:", {
+          hash,
+          targetAddress,
         });
         
         return Response.json({ hash });

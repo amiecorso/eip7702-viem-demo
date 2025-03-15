@@ -27,8 +27,9 @@ type Props = {
   account: ExtendedAccount;
   isDelegateDisrupted: boolean;
   isImplementationDisrupted: boolean;
+  isOwnershipDisrupted: boolean;
   onRecoveryComplete: () => void;
-  onStateChange: (bytecode: string | null, slotValue: string | null) => void;
+  onStateChange: (bytecode: string | null, slotValue: string | null, nextOwnerIndex?: bigint) => void;
 };
 
 const waitForTransaction = async (
@@ -107,6 +108,7 @@ export function PasskeyVerification({
   account,
   isDelegateDisrupted,
   isImplementationDisrupted,
+  isOwnershipDisrupted,
   onRecoveryComplete,
   onStateChange,
 }: Props) {
@@ -343,7 +345,7 @@ export function PasskeyVerification({
     });
 
     const state = await checkContractState(publicClient, smartWalletAddress);
-    onStateChange(state.bytecode, state.implementation);
+    onStateChange(state.bytecode, state.implementation, state.nextOwnerIndex);
   };
 
   const handleVerify = useCallback(async () => {

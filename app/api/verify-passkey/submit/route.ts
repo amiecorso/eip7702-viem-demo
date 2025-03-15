@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { type Hash, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { odysseyTestnet } from "../../../lib/chains";
-import { EntryPointAddress, EntryPointAbi } from "../../../lib/abi/EntryPoint";
+import { ENTRYPOINT_ADDRESS } from "../../../lib/constants";
+import { ENTRYPOINT_ABI } from "../../../lib/abi/EntryPoint";
 
 export async function POST(request: Request) {
   try {
@@ -20,15 +21,15 @@ export async function POST(request: Request) {
 
     // Submit the userOp
     const txHash = (await walletClient.writeContract({
-      address: EntryPointAddress,
-      abi: EntryPointAbi,
+      address: ENTRYPOINT_ADDRESS,
+      abi: ENTRYPOINT_ABI,
       functionName: "handleOps",
       args: [[userOp], relayerAccount.address],
     })) as Hash;
 
     const userOpHash = (await walletClient.writeContract({
-      address: EntryPointAddress,
-      abi: EntryPointAbi,
+      address: ENTRYPOINT_ADDRESS,
+      abi: ENTRYPOINT_ABI,
       functionName: "getUserOpHash",
       args: [userOp],
     })) as Hash;

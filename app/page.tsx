@@ -21,8 +21,10 @@ export default function Home() {
   const [passkey, setPasskey] = useState<P256Credential | null>(null);
   const [isDelegateDisrupted, setIsDelegateDisrupted] = useState(false);
   const [isImplementationDisrupted, setIsImplementationDisrupted] = useState(false);
+  const [isOwnershipDisrupted, setIsOwnershipDisrupted] = useState(false);
   const [currentBytecode, setCurrentBytecode] = useState<string | null>(null);
   const [currentSlotValue, setCurrentSlotValue] = useState<string | null>(null);
+  const [nextOwnerIndex, setNextOwnerIndex] = useState<bigint>();
 
   const handleReset = () => {
     setWalletAddress(null);
@@ -34,31 +36,36 @@ export default function Home() {
     setPasskey(null);
     setIsDelegateDisrupted(false);
     setIsImplementationDisrupted(false);
+    setIsOwnershipDisrupted(false);
     setCurrentBytecode(null);
     setCurrentSlotValue(null);
+    setNextOwnerIndex(undefined);
     setResetKey((prev) => prev + 1);
   };
 
-  const handleDisruptionComplete = (type: 'delegate' | 'implementation') => {
+  const handleDisruptionComplete = (type: 'delegate' | 'implementation' | 'ownership') => {
     if (type === 'delegate') {
       setIsDelegateDisrupted(true);
-    } else {
+    } else if (type === 'implementation') {
       setIsImplementationDisrupted(true);
+    } else {
+      setIsOwnershipDisrupted(true);
     }
   };
 
   const handleRecoveryComplete = () => {
     setIsDelegateDisrupted(false);
     setIsImplementationDisrupted(false);
+    setIsOwnershipDisrupted(false);
   };
 
-  const handleStateChange = (bytecode: string | null, slotValue: string | null) => {
+  const handleStateChange = (bytecode: string | null, slotValue: string | null, ownerIndex?: bigint) => {
     // Update current values if they're provided
     if (bytecode !== null) {
       setCurrentBytecode(bytecode);
       
       // Check if delegate is disrupted by comparing bytecode with expected format
-      const expectedBytecode = getExpectedBytecode(false);
+      const expectedBytecode = getExpectedBytecode();
       const currentBytecode = bytecode.toLowerCase();
       const newDelegateDisrupted = currentBytecode !== "0x" && currentBytecode !== expectedBytecode;
       setIsDelegateDisrupted(newDelegateDisrupted);
@@ -69,6 +76,11 @@ export default function Home() {
 
       const newImplementationDisrupted = slotValue.toLowerCase() !== CBSW_IMPLEMENTATION_ADDRESS.toLowerCase();
       setIsImplementationDisrupted(newImplementationDisrupted);
+    }
+
+    if (ownerIndex !== undefined) {
+      setNextOwnerIndex(ownerIndex);
+      setIsOwnershipDisrupted(ownerIndex === BigInt(0));
     }
   };
 
@@ -213,6 +225,7 @@ export default function Home() {
           account={account!}
           isDelegateDisrupted={isDelegateDisrupted}
           isImplementationDisrupted={isImplementationDisrupted}
+          isOwnershipDisrupted={isOwnershipDisrupted}
           onRecoveryComplete={handleRecoveryComplete}
           onStateChange={handleStateChange}
         />

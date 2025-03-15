@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { type Address, type Hash, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { odysseyTestnet } from "../../../lib/chains";
-import { EntryPointAddress, EntryPointAbi } from "../../../lib/abi/EntryPoint";
+import { ENTRYPOINT_ADDRESS } from "../../../lib/constants";
+import { ENTRYPOINT_ABI } from "../../../lib/abi/EntryPoint";
 
 export async function POST(request: Request) {
   try {
@@ -20,8 +21,8 @@ export async function POST(request: Request) {
 
     // Pre-fund the smart account's deposit in the EntryPoint
     const txHash = (await walletClient.writeContract({
-      address: EntryPointAddress,
-      abi: EntryPointAbi,
+      address: ENTRYPOINT_ADDRESS,
+      abi: ENTRYPOINT_ABI,
       functionName: "depositTo",
       args: [smartWalletAddress as Address],
       value: BigInt(1e17), // 0.1 ETH

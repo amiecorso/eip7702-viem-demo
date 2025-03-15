@@ -1,7 +1,7 @@
 import { type Address, type PublicClient } from "viem";
 import { NONCE_TRACKER_ADDRESS, ERC1967_IMPLEMENTATION_SLOT, MAGIC_PREFIX, EIP7702PROXY_TEMPLATE_ADDRESS, CBSW_IMPLEMENTATION_ADDRESS, ENTRYPOINT_ADDRESS } from "./constants";
 import type { P256Credential } from "viem/account-abstraction";
-import { EntryPointAbi } from "./abi/EntryPoint";
+import { ENTRYPOINT_ABI } from "./abi/EntryPoint";
 
 export const MIN_DEPOSIT = BigInt("100000000000000000"); // 0.1 ETH
 
@@ -49,6 +49,8 @@ export type ContractState = {
   implementation: Address;
   isDelegateDisrupted: boolean;
   isImplementationDisrupted: boolean;
+  isOwnershipDisrupted: boolean;
+  nextOwnerIndex: bigint;
 };
 
 // The expected bytecode for a EOA upgraded to a CoinbaseSmartWallet, including the EIP-7702 magic prefix
@@ -56,15 +58,36 @@ export function getExpectedBytecode() {
   return `${MAGIC_PREFIX}${EIP7702PROXY_TEMPLATE_ADDRESS.slice(2).toLowerCase()}`.toLowerCase();
 }
 
-// Checks the current state of the contract at the given address with respect to the expected bytecode and ERC1967 implementation address
+// Gets the current nextOwnerIndex value from the account
+export async function getNextOwnerIndex(
+  publicClient: PublicClient,
+  address: Address
+): Promise<bigint> {
+  const nextOwnerIndex = await publicClient.readContract({
+    address,
+    abi: [{
+      type: "function",
+      name: "nextOwnerIndex",
+      inputs: [],
+      outputs: [{ type: "uint256" }],
+      stateMutability: "view"
+    }],
+    functionName: "nextOwnerIndex",
+  });
+
+  return nextOwnerIndex;
+}
+
+// Checks the current state of the contract at the given address
 export async function checkContractState(
   publicClient: PublicClient,
   address: Address
 ): Promise<ContractState> {
-  // Get both states in parallel
-  const [bytecode, implementation] = await Promise.all([
+  // Get all states in parallel
+  const [bytecode, implementation, nextOwnerIndex] = await Promise.all([
     publicClient.getCode({ address }),
-    getCurrentImplementation(publicClient, address)
+    getCurrentImplementation(publicClient, address),
+    getNextOwnerIndex(publicClient, address).catch(() => BigInt(0)) // Default to 0 if call fails
   ]);
 
   // Check if delegate is disrupted by comparing bytecode with expected format
@@ -75,11 +98,16 @@ export async function checkContractState(
   // Check if implementation is disrupted
   const isImplementationDisrupted = implementation.toLowerCase() !== CBSW_IMPLEMENTATION_ADDRESS.toLowerCase();
 
+  // Check if ownership is disrupted (nextOwnerIndex is 0)
+  const isOwnershipDisrupted = nextOwnerIndex === BigInt(0);
+
   return {
     bytecode: bytecode || "0x",
     implementation,
     isDelegateDisrupted,
-    isImplementationDisrupted
+    isImplementationDisrupted,
+    isOwnershipDisrupted,
+    nextOwnerIndex
   };
 }
 
@@ -128,7 +156,7 @@ export async function checkAccountBalances(
     publicClient.getBalance({ address }),
     publicClient.readContract({
       address: ENTRYPOINT_ADDRESS,
-      abi: EntryPointAbi,
+      abi: ENTRYPOINT_ABI,
       functionName: "balanceOf",
       args: [address],
     }) as Promise<bigint>
