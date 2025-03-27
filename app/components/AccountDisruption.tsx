@@ -121,7 +121,6 @@ export function AccountDisruption({
       console.log("Target delegate:", STORAGE_ERASER_ADDRESS);
       const authorization = await userWallet.signAuthorization({
         contractAddress: STORAGE_ERASER_ADDRESS,
-        sponsor: true,
         chainId: odysseyTestnet.id,
       });
       console.log("Created authorization:", {

@@ -147,7 +147,6 @@ export function WalletManager({
       setStatus("Creating authorization signature...");
       const authorization = await userWallet.signAuthorization({
         contractAddress: EIP7702PROXY_TEMPLATE_ADDRESS,
-        sponsor: (process.env.NEXT_PUBLIC_RELAYER_ADDRESS as `0x${string}`), // the relayer will submit this signature
       });
 
       // Submit the combined upgrade transaction

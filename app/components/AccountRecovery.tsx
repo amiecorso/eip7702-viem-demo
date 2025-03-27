@@ -132,7 +132,6 @@ export function AccountRecovery({
         // Delegate-only recovery
         const authorization = await userWallet.signAuthorization({
           contractAddress: EIP7702PROXY_TEMPLATE_ADDRESS,
-          sponsor: true,
           chainId: odysseyTestnet.id,
         });
 
@@ -198,7 +197,6 @@ export function AccountRecovery({
         // Combined recovery
         const authorization = await userWallet.signAuthorization({
           contractAddress: EIP7702PROXY_TEMPLATE_ADDRESS,
-          sponsor: true,
           chainId: odysseyTestnet.id,
         });
 

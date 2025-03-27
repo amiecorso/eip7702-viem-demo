@@ -8,7 +8,6 @@ import {
   type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { eip7702Actions } from "viem/experimental";
 import { secp256k1 } from "@noble/curves/secp256k1";
 import { hexToBytes } from "@noble/curves/abstract/utils";
 import { odysseyTestnet } from "./chains";
@@ -29,7 +28,7 @@ export function createEOAClient(account: ExtendedAccount) {
     account,
     chain: odysseyTestnet,
     transport: http(),
-  }).extend(eip7702Actions());
+  });
 }
 
 // Creates a new extended account with a random private key

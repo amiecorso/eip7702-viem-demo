@@ -1,7 +1,6 @@
 import { privateKeyToAccount } from "viem/accounts";
-import { createWalletClient, http, type Hex, encodeFunctionData, createPublicClient } from "viem";
+import { createWalletClient, http, type Hex, encodeFunctionData } from "viem";
 import { odysseyTestnet } from "@/app/lib/chains";
-import { eip7702Actions } from "viem/experimental";
 import { CBSW_IMPLEMENTATION_ADDRESS, VALIDATOR_ADDRESS } from "../../lib/constants";
 import { MULTI_OWNABLE_STORAGE_ERASER_ABI } from "../../lib/abi/MultiOwnableStorageEraser";
 
@@ -33,7 +32,7 @@ const relayerWallet = createWalletClient({
   account: relayerAccount,
   chain: odysseyTestnet,
   transport: http(),
-}).extend(eip7702Actions());
+});
 
 // Helper to encode setImplementation call
 const encodeSetImplementation = (
