@@ -182,7 +182,7 @@ export function PasskeyVerification({
         isComplete: false,
       });
 
-      const { accountBalance, entryPointDeposit, needsDeposit } = await checkAccountBalances(publicClient, smartWalletAddress);
+      const { accountBalance, needsDeposit } = await checkAccountBalances(publicClient, smartWalletAddress);
 
       if (accountBalance === BigInt(0)) {
         updateStep(0, {
