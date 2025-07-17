@@ -50,7 +50,7 @@ export function AccountDisruption({
     };
 
     checkDelegateState();
-  }, [account.address, currentSlotValue]); // Re-run when address or currentSlotValue changes
+  }, [account.address, currentSlotValue, onStateChange]); // Re-run when address or currentSlotValue changes
 
   useEffect(() => {
     const checkImplementationState = async () => {
@@ -64,7 +64,7 @@ export function AccountDisruption({
     };
 
     checkImplementationState();
-  }, [account.address, currentBytecode, nextOwnerIndex]); // Re-run when address, bytecode, or nextOwnerIndex changes
+  }, [account.address, currentBytecode, nextOwnerIndex, onStateChange]); // Re-run when address, bytecode, or nextOwnerIndex changes
 
   // Add a new effect to update local state when props change
   useEffect(() => {
@@ -104,7 +104,7 @@ export function AccountDisruption({
 
       // Create user's wallet client for signing
       const userWallet = createEOAClient(account);
-      const initialState = await checkState();
+      await checkState();
 
       // Get the relayer address
       const relayerAddress = (process.env.NEXT_PUBLIC_RELAYER_ADDRESS as `0x${string}`);
@@ -154,12 +154,7 @@ export function AccountDisruption({
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
       console.log("Transaction receipt:", receipt);
 
-      const finalState = await checkState();
-
-      // For delegation, check if bytecode changed
-      if (finalState.bytecode === initialState.bytecode) {
-        console.warn("⚠️ Warning: Bytecode did not change after delegation attempt");
-      }
+      await checkState();
 
       onDisruptionComplete('delegate');
     } catch (error: any) {
@@ -175,7 +170,7 @@ export function AccountDisruption({
       setOwnershipLoading(true);
       setError(null);
 
-      const initialState = await checkState();
+      await checkState();
 
       // Create public client for transaction monitoring
       const publicClient = createPublicClient({

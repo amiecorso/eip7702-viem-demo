@@ -31,15 +31,26 @@ export function createEOAClient(account: ExtendedAccount) {
   });
 }
 
-// Creates a new extended account with a random private key
-export async function createEOAWallet(): Promise<ExtendedAccount> {
-  // Generate a random private key
-  const privateKey = `0x${crypto
+// Creates a new extended account with a random private key or a provided one
+export async function createEOAWallet(providedPrivateKey?: Hex): Promise<ExtendedAccount> {
+  // Use provided private key or generate a random one
+  const privateKey = providedPrivateKey || `0x${crypto
     .getRandomValues(new Uint8Array(32))
     .reduce(
       (str, byte) => str + byte.toString(16).padStart(2, "0"),
       ""
     )}` as Hex;
+  const account = privateKeyToAccount(privateKey);
+  return {
+    ...account,
+    _privateKey: privateKey,
+  };
+}
+
+// Creates an extended account from a mnemonic-derived private key
+export async function createEOAWalletFromMnemonic(privateKeyHex: string): Promise<ExtendedAccount> {
+  // Ensure the private key has 0x prefix
+  const privateKey = privateKeyHex.startsWith('0x') ? privateKeyHex as Hex : `0x${privateKeyHex}` as Hex;
   const account = privateKeyToAccount(privateKey);
   return {
     ...account,
@@ -56,15 +67,28 @@ export function encodeInitializeArgs(
     if (typeof owner === "string") {
       // Regular address
       return encodeAbiParameters([{ type: "address" }], [owner]);
-    } else {
+    } else if (owner && typeof owner === "object" && "publicKey" in owner) {
       // WebAuthn public key - encode as bytes32[2] for x and y coordinates
-      const pubKeyHex = owner.publicKey.slice(2); // remove 0x prefix
+      let pubKeyHex = owner.publicKey.slice(2); // remove 0x prefix
+      
+      // If the public key starts with 04 (uncompressed format), remove it
+      if (pubKeyHex.startsWith('04')) {
+        pubKeyHex = pubKeyHex.slice(2);
+      }
+      
+      // Now pubKeyHex should be exactly 128 characters (64 bytes)
+      if (pubKeyHex.length !== 128) {
+        throw new Error(`Invalid public key length: expected 128 hex chars, got ${pubKeyHex.length}`);
+      }
+      
       const x = `0x${pubKeyHex.slice(0, 64)}` as Hex;
-      const y = `0x${pubKeyHex.slice(64)}` as Hex;
+      const y = `0x${pubKeyHex.slice(64, 128)}` as Hex;
       return encodeAbiParameters(
         [{ type: "bytes32" }, { type: "bytes32" }],
         [x, y]
       );
+    } else {
+      throw new Error(`Invalid owner type: expected string (address) or object with publicKey property, got ${typeof owner}`);
     }
   });
 

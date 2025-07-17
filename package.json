@@ -10,6 +10,9 @@
     "types": "tsc --noEmit"
   },
   "dependencies": {
+    "@noble/curves": "^1.9.2",
+    "@noble/hashes": "^1.8.0",
+    "bip39": "^3.1.0",
     "ethereum-cryptography": "^3.0.0",
     "next": "14.2.15",
     "react": "^18",

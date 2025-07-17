@@ -115,6 +115,26 @@ export async function verifyPasskeyOwnership(
   walletAddress: Address,
   passkey: P256Credential
 ): Promise<boolean> {
+  // Remove the 0x prefix and the 04 format byte to get just the coordinates
+  const pubKeyWithoutPrefix = passkey.publicKey.slice(2); // Remove '0x'
+  
+  // Check if it starts with '04' (uncompressed format)
+  if (!pubKeyWithoutPrefix.startsWith('04')) {
+    throw new Error('Invalid public key format - expected uncompressed (0x04...)');
+  }
+  
+  // Remove the '04' format byte
+  const coordinates = pubKeyWithoutPrefix.slice(2);
+  
+  // Extract X and Y coordinates (each should be 64 hex chars = 32 bytes)
+  const xCoord = coordinates.slice(0, 64);
+  const yCoord = coordinates.slice(64, 128);
+  
+  // Verify we have the correct lengths
+  if (xCoord.length !== 64 || yCoord.length !== 64) {
+    throw new Error(`Invalid public key coordinates length - X: ${xCoord.length}, Y: ${yCoord.length}`);
+  }
+  
   const isOwner = await publicClient.readContract({
     address: walletAddress,
     abi: [{
@@ -129,8 +149,8 @@ export async function verifyPasskeyOwnership(
     }],
     functionName: "isOwnerPublicKey",
     args: [
-      `0x${passkey.publicKey.slice(2, 66)}` as `0x${string}`,
-      `0x${passkey.publicKey.slice(66)}` as `0x${string}`,
+      `0x${xCoord}` as `0x${string}`,
+      `0x${yCoord}` as `0x${string}`,
     ],
   });
 
