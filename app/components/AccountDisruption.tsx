@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { type Address, createPublicClient, http, encodeFunctionData } from "viem";
-import { baseSepolia } from "@/app/lib/chains";
+import { chains } from "@/app/lib/chains";
 import { createEOAClient, type ExtendedAccount } from "@/app/lib/wallet-utils";
 import { CBSW_IMPLEMENTATION_ADDRESS, STORAGE_ERASER_ADDRESS, FOREIGN_1967_IMPLEMENTATION } from "@/app/lib/constants";
 import { AccountState } from "./AccountState";
@@ -39,7 +39,7 @@ export function AccountDisruption({
   useEffect(() => {
     const checkDelegateState = async () => {
       const publicClient = createPublicClient({
-        chain: baseSepolia,
+        chain: chains[process.env.NEXT_PUBLIC_SELECTED_CHAIN as keyof typeof chains ?? "baseSepolia"],
         transport: http(),
       });
 
@@ -55,7 +55,7 @@ export function AccountDisruption({
   useEffect(() => {
     const checkImplementationState = async () => {
       const publicClient = createPublicClient({
-        chain: baseSepolia,
+        chain: chains[process.env.NEXT_PUBLIC_SELECTED_CHAIN as keyof typeof chains ?? "baseSepolia"],
         transport: http(),
       });
 
@@ -70,7 +70,7 @@ export function AccountDisruption({
   useEffect(() => {
     const updateLocalState = async () => {
       const publicClient = createPublicClient({
-        chain: baseSepolia,
+        chain: chains[process.env.NEXT_PUBLIC_SELECTED_CHAIN as keyof typeof chains ?? "baseSepolia"],
         transport: http(),
       });
 
@@ -85,7 +85,7 @@ export function AccountDisruption({
   // Function to check all relevant account states after disruption
   const checkState = async () => {
     const publicClient = createPublicClient({
-      chain: baseSepolia,
+      chain: chains[process.env.NEXT_PUBLIC_SELECTED_CHAIN as keyof typeof chains ?? "baseSepolia"],
       transport: http(),
     });
 
@@ -112,16 +112,18 @@ export function AccountDisruption({
 
       // Create public client for transaction monitoring
       const publicClient = createPublicClient({
-        chain: baseSepolia,
+        chain: chains[process.env.NEXT_PUBLIC_SELECTED_CHAIN as keyof typeof chains ?? "baseSepolia"],
         transport: http(),
       });
 
       // Create authorization signature for the smart wallet to change its delegate to the storage eraser
       console.log("\n=== Creating re-delegation authorization ===");
       console.log("Target delegate:", STORAGE_ERASER_ADDRESS);
+      const isEOASameAsRelayer = account.address.toLowerCase() === (process.env.NEXT_PUBLIC_RELAYER_ADDRESS as string).toLowerCase();
       const authorization = await userWallet.signAuthorization({
         contractAddress: STORAGE_ERASER_ADDRESS,
-        chainId: baseSepolia.id,
+        chainId: chains[process.env.NEXT_PUBLIC_SELECTED_CHAIN as keyof typeof chains ?? "baseSepolia"].id,
+        executor: isEOASameAsRelayer ? account.address : undefined,
       });
       console.log("Created authorization:", {
         hasSignature: !!authorization,
@@ -179,7 +181,7 @@ export function AccountDisruption({
 
       // Create public client for transaction monitoring
       const publicClient = createPublicClient({
-        chain: baseSepolia,
+        chain: chains[process.env.NEXT_PUBLIC_SELECTED_CHAIN as keyof typeof chains ?? "baseSepolia"],
         transport: http(),
       });
 
@@ -233,7 +235,7 @@ export function AccountDisruption({
 
       // Create public client for balance check and transaction monitoring
       const publicClient = createPublicClient({
-        chain: baseSepolia,
+        chain: chains[process.env.NEXT_PUBLIC_SELECTED_CHAIN as keyof typeof chains ?? "baseSepolia"],
         transport: http(),
       });
 

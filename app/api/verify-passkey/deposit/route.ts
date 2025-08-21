@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { type Address, type Hash, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { baseSepolia } from "../../../lib/chains";
+import { chains } from "../../../lib/chains";
 import { ENTRYPOINT_ADDRESS } from "../../../lib/constants";
 import { ENTRYPOINT_ABI } from "../../../lib/abi/EntryPoint";
 
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     );
     const walletClient = createWalletClient({
       account: relayerAccount,
-      chain: baseSepolia,
+      chain: chains[process.env.SELECTED_CHAIN as keyof typeof chains ?? "baseSepolia"],
       transport: http(),
     });
 
