@@ -222,12 +222,14 @@ export function WalletManager({
         console.log("✓ Code deployed successfully");
         
         // Verify passkey ownership
-        // setStatus("✓ Verifying passkey ownership...");
-        // const isOwner = await verifyPasskeyOwnership(publicClient, account.address, passkey);
+        if (passkey) {
+          setStatus("✓ Verifying passkey ownership...");
+          const isOwner = await verifyPasskeyOwnership(publicClient, account.address, passkey);
 
-        // if (!isOwner) {
-        //   throw new Error("Passkey verification failed: not registered as an owner");
-        // }
+          if (!isOwner) {
+            throw new Error("Passkey verification failed: not registered as an owner");
+          }
+        }
 
         console.log("\n=== Wallet upgrade complete ===");
         setStatus("✓ EOA has been upgraded to a Coinbase Smart Wallet with verified passkey!");
