@@ -138,9 +138,7 @@ export function createSetImplementationHash(
 
   console.log("encodedData", encodedData);
 
-  const result = keccak256(encodedData);
-  console.log("result", result);
-  return result;
+  return keccak256(encodedData);
 }
 
 // Signs a hash using the private key of the given wallet client
