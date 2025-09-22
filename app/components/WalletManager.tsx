@@ -2,15 +2,17 @@ import { useState, useEffect } from "react";
 import { createPublicClient, http, maxUint256, type Hex } from "viem";
 import {
   createEOAWallet,
+  createEOAWalletFromPrivateKey,
   createEOAClient,
   encodeInitializeArgs,
   createSetImplementationHash,
   signSetImplementation,
   type ExtendedAccount,
 } from "../lib/wallet-utils";
-import { baseSepolia } from "../lib/chains";
+import { chains } from "../lib/chains";
 import {
   createWebAuthnCredential,
+  CreateWebAuthnCredentialReturnType,
   type P256Credential,
 } from "viem/account-abstraction";
 import {
@@ -47,7 +49,7 @@ function formatError(error: any): string {
 }
 
 function formatExplorerLink(hash: string, type: 'transaction' | 'address' = 'transaction'): string | null {
-  return `${baseSepolia.blockExplorers.default.url}/${type}/${hash}`;
+  return `${chains[process.env.NEXT_PUBLIC_SELECTED_CHAIN as keyof typeof chains ?? "baseSepolia"].blockExplorers.default.url}/${type}/${hash}`;
 }
 
 export function WalletManager({
@@ -62,6 +64,7 @@ export function WalletManager({
   const [account, setAccount] = useState<ExtendedAccount | null>(null);
   const [isUpgraded, setIsUpgraded] = useState(false);
   const [status, setStatus] = useState<string>("");
+  const [privateKey, setPrivateKey] = useState<string>("");
 
   // Reset internal state when resetKey changes
   useEffect(() => {
@@ -90,6 +93,24 @@ export function WalletManager({
     }
   };
 
+  // Creates EOA wallet from private key
+  const handleCreateEOAFromPrivateKey = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const newAccount = createEOAWalletFromPrivateKey(privateKey as Hex);
+      setAccount(newAccount);
+      const explorerLink = formatExplorerLink(newAccount.address, 'address');
+      onWalletCreated(newAccount.address, explorerLink);
+      onAccountCreated(newAccount);
+    } catch (error) {
+      console.error("Error creating EOA from private key:", error);
+      setError("Failed to create EOA wallet from private key");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Upgrades the EOA wallet to a CoinbaseSmartWallet and initializes passkey ownership
   const handleUpgradeWallet = async () => {
     if (!account) return;
@@ -107,27 +128,34 @@ export function WalletManager({
 
       // Create public client for reading state
       const publicClient = createPublicClient({
-        chain: baseSepolia,
+        chain: chains[process.env.NEXT_PUBLIC_SELECTED_CHAIN as keyof typeof chains ?? "baseSepolia"],
         transport: http(),
       });
 
-        // Create a new passkey
-      setStatus("Creating new passkey...");
-      const passkey = await createWebAuthnCredential({
-        name: "Smart Wallet Owner",
-      });
-      onPasskeyStored(passkey);
+      // Create a new passkey
+      let passkey: CreateWebAuthnCredentialReturnType | null = null;
+      if (process.env.NEXT_PUBLIC_ENABLE_PASSKEY === "true") {
+        setStatus("Creating new passkey...");
+        passkey = await createWebAuthnCredential({ name: "Smart Wallet Owner" });
+        onPasskeyStored(passkey);
+      }
 
       // Create initialization args with both passkey and relayer as owners
       // We include the relayer as owner only for the purposes of this demo, which allows the relayer
       // to retrieve their entrypoint deposit while serving as a lightweight bundler.
       setStatus("Preparing initialization data and signature...");
+      const isEOASameAsRelayer = account.address.toLowerCase() === (process.env.NEXT_PUBLIC_RELAYER_ADDRESS as string).toLowerCase();
+
       const initArgs = encodeInitializeArgs([
-        passkey,
-        (process.env.NEXT_PUBLIC_RELAYER_ADDRESS as Hex),
+        ...(passkey ? [passkey] : []),
+        account.address,
+         // Only adding relay as an owner so that it can move funds out of the wallet for testing.  Should not happen on prod
+        ...(isEOASameAsRelayer ? [] : [(process.env.NEXT_PUBLIC_RELAYER_ADDRESS as Hex)]),
       ]);
+
+      console.log("initArgs", initArgs);
       const nonce = await getNonceFromTracker(publicClient, account.address);
-      const chainId = baseSepolia.id;
+      const chainId = chains[process.env.NEXT_PUBLIC_SELECTED_CHAIN as keyof typeof chains ?? "baseSepolia"].id;
 
       // Create the setImplementationHash for the upgrade transaction
       const setImplementationHash = createSetImplementationHash(
@@ -148,6 +176,7 @@ export function WalletManager({
       setStatus("Creating authorization signature...");
       const authorization = await userWallet.signAuthorization({
         contractAddress: EIP7702PROXY_TEMPLATE_ADDRESS,
+        executor: isEOASameAsRelayer ? account.address : undefined,
       });
 
       // Submit the combined upgrade transaction
@@ -193,11 +222,13 @@ export function WalletManager({
         console.log("✓ Code deployed successfully");
         
         // Verify passkey ownership
-        setStatus("✓ Verifying passkey ownership...");
-        const isOwner = await verifyPasskeyOwnership(publicClient, account.address, passkey);
+        if (passkey) {
+          setStatus("✓ Verifying passkey ownership...");
+          const isOwner = await verifyPasskeyOwnership(publicClient, account.address, passkey);
 
-        if (!isOwner) {
-          throw new Error("Passkey verification failed: not registered as an owner");
+          if (!isOwner) {
+            throw new Error("Passkey verification failed: not registered as an owner");
+          }
         }
 
         console.log("\n=== Wallet upgrade complete ===");
@@ -223,13 +254,30 @@ export function WalletManager({
   return (
     <div className="flex flex-col items-center gap-4">
       {!account && (
-        <button
-          onClick={handleCreateEOA}
-          disabled={loading}
-          className="w-64 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
-        >
-          {loading ? "Creating..." : "Create new EOA Wallet"}
-        </button>
+        <>
+          <button
+            onClick={handleCreateEOA}
+            disabled={loading}
+            className="w-64 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+          >
+            {loading ? "Creating..." : "Create new EOA Wallet"}
+          </button>
+          <div className="flex flex-col gap-2 w-64">
+            <input
+              type="password"
+              placeholder="Enter EOA private key"
+              className="px-3 py-2 border border-gray-300 rounded text-black"
+              onChange={(e) => setPrivateKey(e.target.value)}
+            />
+            <button
+              onClick={handleCreateEOAFromPrivateKey}
+              disabled={loading || !privateKey}
+              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
+            >
+              {loading ? "Creating..." : "Create EOA from Private Key"}
+            </button>
+          </div>
+        </>
       )}
 
       {account && !isUpgraded && (

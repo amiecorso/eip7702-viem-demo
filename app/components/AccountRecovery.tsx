@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { type Address, type Hash, createPublicClient, http, maxUint256 } from "viem";
 import { type P256Credential, createWebAuthnCredential } from "viem/account-abstraction";
-import { baseSepolia } from "../lib/chains";
+import { chains } from "../lib/chains";
 import { createSetImplementationHash, type ExtendedAccount, createEOAClient, signSetImplementation, encodeInitializeArgs } from "../lib/wallet-utils";
 import { EIP7702PROXY_TEMPLATE_ADDRESS, CBSW_IMPLEMENTATION_ADDRESS } from "../lib/constants";
 import { getNonceFromTracker, checkContractState, getCurrentImplementation, verifyPasskeyOwnership } from "../lib/contract-utils";
@@ -28,7 +28,7 @@ type Props = {
 function TransactionLink({ hash }: { hash: Hash }) {
   return (
     <a
-      href={`${baseSepolia.blockExplorers.default.url}/tx/${hash}`}
+      href={`${chains[process.env.NEXT_PUBLIC_SELECTED_CHAIN as keyof typeof chains ?? "baseSepolia"].blockExplorers.default.url}/tx/${hash}`}
       target="_blank"
       rel="noopener noreferrer"
       className="text-blue-400 hover:text-blue-300 underline font-mono"
@@ -111,7 +111,7 @@ export function AccountRecovery({
 
       const userWallet = createEOAClient(account);
       const publicClient = createPublicClient({
-        chain: baseSepolia,
+        chain: chains[process.env.NEXT_PUBLIC_SELECTED_CHAIN as keyof typeof chains ?? "baseSepolia"],
         transport: http(),
       });
 
@@ -130,9 +130,11 @@ export function AccountRecovery({
       // Handle the three possible recovery flows
       if (isDelegateDisrupted && !isImplementationDisrupted) {
         // Delegate-only recovery
+        const isEOASameAsRelayer = account.address.toLowerCase() === (process.env.NEXT_PUBLIC_RELAYER_ADDRESS as string).toLowerCase();
         const authorization = await userWallet.signAuthorization({
           contractAddress: EIP7702PROXY_TEMPLATE_ADDRESS,
-          chainId: baseSepolia.id,
+          chainId: chains[process.env.NEXT_PUBLIC_SELECTED_CHAIN as keyof typeof chains ?? "baseSepolia"].id,
+          executor: isEOASameAsRelayer ? account.address : undefined,
         });
 
         const response = await fetch("/api/relay", {
@@ -168,7 +170,7 @@ export function AccountRecovery({
           nonce,
           currentImplementation,
           false,
-          BigInt(baseSepolia.id),
+          BigInt(chains[process.env.NEXT_PUBLIC_SELECTED_CHAIN as keyof typeof chains ?? "baseSepolia"].id),
           BigInt(maxUint256)
         );
 
@@ -196,9 +198,11 @@ export function AccountRecovery({
       }
       else if (isDelegateDisrupted && isImplementationDisrupted) {
         // Combined recovery
+        const isEOASameAsRelayer = account.address.toLowerCase() === (process.env.NEXT_PUBLIC_RELAYER_ADDRESS as string).toLowerCase();
         const authorization = await userWallet.signAuthorization({
           contractAddress: EIP7702PROXY_TEMPLATE_ADDRESS,
-          chainId: baseSepolia.id,
+          chainId: chains[process.env.NEXT_PUBLIC_SELECTED_CHAIN as keyof typeof chains ?? "baseSepolia"].id,
+          executor: isEOASameAsRelayer ? account.address : undefined,
         });
 
         const currentImplementation = await getCurrentImplementation(publicClient, smartWalletAddress);
@@ -212,7 +216,7 @@ export function AccountRecovery({
           nonce,
           currentImplementation,
           false,
-          BigInt(baseSepolia.id),
+          BigInt(chains[process.env.NEXT_PUBLIC_SELECTED_CHAIN as keyof typeof chains ?? "baseSepolia"].id),
           BigInt(maxUint256)
         );
 

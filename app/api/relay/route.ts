@@ -1,6 +1,6 @@
 import { privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, http, type Hex, encodeFunctionData, maxUint256 } from "viem";
-import { baseSepolia } from "@/app/lib/chains";
+import { chains } from "@/app/lib/chains";
 import { CBSW_IMPLEMENTATION_ADDRESS, VALIDATOR_ADDRESS } from "../../lib/constants";
 import { MULTI_OWNABLE_STORAGE_ERASER_ABI } from "../../lib/abi/MultiOwnableStorageEraser";
 
@@ -30,7 +30,7 @@ if (
 
 const relayerWallet = createWalletClient({
   account: relayerAccount,
-  chain: baseSepolia,
+  chain: chains[process.env.SELECTED_CHAIN as keyof typeof chains ?? "baseSepolia"],
   transport: http(),
 });
 

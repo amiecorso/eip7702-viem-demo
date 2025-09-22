@@ -4,7 +4,7 @@ import { useState } from "react";
 import { WalletManager } from "./components/WalletManager";
 import { PasskeyVerification } from "./components/PasskeyVerification";
 import { type ExtendedAccount } from "./lib/wallet-utils";
-import { baseSepolia } from "./lib/chains";
+import { chains } from "./lib/chains";
 import { type P256Credential } from "viem/account-abstraction";
 import { AccountDisruption } from "./components/AccountDisruption";
 import { CBSW_IMPLEMENTATION_ADDRESS } from "./lib/constants";
@@ -160,7 +160,7 @@ export default function Home() {
               <span className="text-gray-400">Upgrade Transaction:</span>
               <div className="break-all">
                 <a
-                  href={`${baseSepolia.blockExplorers.default.url}/tx/${upgradeTxHash}`}
+                  href={`${chains[process.env.NEXT_PUBLIC_SELECTED_CHAIN as keyof typeof chains ?? "baseSepolia"].blockExplorers.default.url}/tx/${upgradeTxHash}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-400 hover:text-blue-300 underline font-mono"

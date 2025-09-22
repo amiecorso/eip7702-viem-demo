@@ -6,7 +6,7 @@ import {
   toCoinbaseSmartAccount,
   type UserOperation,
 } from "viem/account-abstraction";
-import { baseSepolia } from "../lib/chains";
+import { chains } from "../lib/chains";
 import { serializeBigInts } from "../lib/relayer-utils";
 import { type ExtendedAccount } from "../lib/wallet-utils";
 import { checkAccountBalances, verifyPasskeyOwnership } from "../lib/contract-utils";
@@ -34,7 +34,7 @@ type Props = {
 
 const waitForTransaction = async (
   hash: Hash,
-  chain: typeof baseSepolia
+  chain: typeof chains[keyof typeof chains]
 ) => {
   const publicClient = createPublicClient({
     chain,
@@ -46,7 +46,7 @@ const waitForTransaction = async (
 function TransactionLink({ hash }: { hash: Hash }) {
   return (
     <a
-      href={`${baseSepolia.blockExplorers.default.url}/tx/${hash}`}
+      href={`${chains[process.env.NEXT_PUBLIC_SELECTED_CHAIN as keyof typeof chains ?? "baseSepolia"].blockExplorers.default.url}/tx/${hash}`}
       target="_blank"
       rel="noopener noreferrer"
       className="text-blue-400 hover:text-blue-300 underline font-mono"
@@ -108,7 +108,7 @@ export function PasskeyVerification({
   const [verifying, setVerifying] = useState(false);
   const [steps, setSteps] = useState<VerificationStep[]>([]);
   const [isVerified, setIsVerified] = useState(false);
-  const chain = baseSepolia;
+  const chain = chains[process.env.NEXT_PUBLIC_SELECTED_CHAIN as keyof typeof chains ?? "baseSepolia"];
 
   // Reset verification state when component becomes visible again after disruption
   const isDisrupted = isDelegateDisrupted || isImplementationDisrupted || isOwnershipDisrupted;

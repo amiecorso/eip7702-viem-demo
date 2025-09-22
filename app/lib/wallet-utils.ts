@@ -10,7 +10,7 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { secp256k1 } from "@noble/curves/secp256k1";
 import { hexToBytes } from "@noble/curves/abstract/utils";
-import { baseSepolia } from "./chains";
+import { chains } from "./chains";
 import { 
   IMPLEMENTATION_SET_TYPEHASH, 
   VALIDATOR_ADDRESS,
@@ -26,7 +26,7 @@ export function createEOAClient(account: ExtendedAccount) {
   // Create the wallet client with the extended account to get access to private key
   return createWalletClient({
     account,
-    chain: baseSepolia,
+    chain: chains[process.env.NEXT_PUBLIC_SELECTED_CHAIN as keyof typeof chains ?? "baseSepolia"],
     transport: http(),
   });
 }
@@ -40,6 +40,15 @@ export async function createEOAWallet(): Promise<ExtendedAccount> {
       (str, byte) => str + byte.toString(16).padStart(2, "0"),
       ""
     )}` as Hex;
+  const account = privateKeyToAccount(privateKey);
+  return {
+    ...account,
+    _privateKey: privateKey,
+  };
+}
+
+// Creates a new extended account with a given private key
+export function createEOAWalletFromPrivateKey(privateKey: Hex): ExtendedAccount {
   const account = privateKeyToAccount(privateKey);
   return {
     ...account,
@@ -126,6 +135,8 @@ export function createSetImplementationHash(
       expiry,
     ]
   );
+
+  console.log("encodedData", encodedData);
 
   return keccak256(encodedData);
 }
